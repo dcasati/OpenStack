@@ -1,0 +1,77 @@
+heat_template_version: 2015-04-30
+description: > 
+  This template generates a FreeBSD instance
+
+parameters:
+  flavor:
+    type: string
+    description: Flavor type for the instance
+    default: p3.large
+
+  image:
+    type: string
+    description: > 
+       FreeBSD 11-RELEASE Image
+    default: FreeBSD-OpenStack
+
+  public_network_id:
+    type: string
+    description: Public network for floating IP ID or name
+    default: public
+
+  private_network_id:
+    type: string
+    description: Private network ID or name
+    default: private
+
+  private_subnet_id:
+    type: string
+    description: Private sub network ID or name
+    default: private_subnet
+
+  # security
+  instance_security_group:
+    type: string
+    description: Default security group
+    default: default
+
+  password:
+    type: string
+    description: Password for instance. Username is 'freebsd'
+    default: password
+
+  ssh_key:
+    type: string
+    default: cse-pubkey
+
+resources:
+  instance:
+   type: OS::Nova::Server
+   properties:
+     image: {get_param: image}
+     flavor: {get_param: flavor}
+     key_name: {get_param: ssh_key}
+     networks:
+     - port: {get_resource: instance_port}
+
+  instance_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: {get_param: private_network_id}
+      fixed_ips:
+        - subnet_id: { get_param: private_subnet_id }
+      security_groups: [{get_param: instance_security_group}]
+
+  instance_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: {get_param: public_network_id}
+      port_id: {get_resource: instance_port}
+  
+
+outputs:
+  instance_private_ip:
+    value: {get_attr: [instance, first_address]}
+
+  instance_public_ip:
+    value: {get_attr: [instance_floating_ip, floating_ip_address]}
